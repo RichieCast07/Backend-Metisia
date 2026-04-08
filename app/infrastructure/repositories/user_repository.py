@@ -3,22 +3,23 @@ from sqlalchemy import select, update, delete
 from app.domain.entities.user import User as UserEntity
 from app.domain.repositories.user_repository import IUserRepository
 from app.infrastructure.models.user import User as UserModel
-from typing import Optional, List
+from typing import Optional
 
 class UserRepository(IUserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id(self, id: str, business_id: str) -> Optional[UserEntity]:
-        stmt = select(UserModel).where(UserModel.id == id, UserModel.id == business_id)
+    async def get_by_id(self, id: str) -> Optional[UserEntity]:
+        stmt = select(UserModel).where(UserModel.id == id)
         result = await self.session.execute(stmt)
         user = result.scalar_one_or_none()
         return UserEntity(**user.__dict__) if user else None
 
-    async def get_all(self, business_id: str) -> List[UserEntity]:
-        stmt = select(UserModel).where(UserModel.id == business_id)
+    async def find_by_email(self, email: str) -> Optional[UserEntity]:
+        stmt = select(UserModel).where(UserModel.email == email)
         result = await self.session.execute(stmt)
-        return [UserEntity(**u.__dict__) for u in result.scalars().all()]
+        user = result.scalar_one_or_none()
+        return UserEntity(**user.__dict__) if user else None
 
     async def create(self, entity: UserEntity) -> UserEntity:
         user = UserModel(**entity.__dict__)
@@ -28,11 +29,13 @@ class UserRepository(IUserRepository):
         return UserEntity(**user.__dict__)
 
     async def update(self, entity: UserEntity) -> UserEntity:
-        await self.session.execute(update(UserModel).where(UserModel.id == entity.id).values(**entity.__dict__))
+        await self.session.execute(
+            update(UserModel).where(UserModel.id == entity.id).values(**entity.__dict__)
+        )
         await self.session.commit()
         return entity
 
-    async def delete(self, id: str, business_id: str) -> bool:
-        await self.session.execute(delete(UserModel).where(UserModel.id == id, UserModel.id == business_id))
+    async def delete(self, id: str) -> bool:
+        await self.session.execute(delete(UserModel).where(UserModel.id == id))
         await self.session.commit()
         return True

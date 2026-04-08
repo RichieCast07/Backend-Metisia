@@ -1,5 +1,6 @@
 from app.database import AsyncSessionLocal
 from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError
 from app.config import settings
@@ -13,6 +14,8 @@ from app.infrastructure.repositories.cash_register_repository import CashRegiste
 from app.infrastructure.repositories.worker_repository import WorkerRepository
 from app.infrastructure.repositories.sale_repository import SaleRepository
 from app.infrastructure.repositories.expense_repository import ExpenseRepository
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as session:
@@ -48,10 +51,13 @@ def get_sale_repository(db: AsyncSession = Depends(get_db)):
 def get_expense_repository(db: AsyncSession = Depends(get_db)):
     return ExpenseRepository(db)
 
-async def get_current_user(token: str = Depends(lambda: None), db: AsyncSession = Depends(get_db)):
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="No se pudieron validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -62,7 +68,7 @@ async def get_current_user(token: str = Depends(lambda: None), db: AsyncSession 
     except JWTError:
         raise credentials_exception
     repo = UserRepository(db)
-    user = await repo.get_by_id(user_id, user_id)
+    user = await repo.get_by_id(user_id)
     if user is None:
         raise credentials_exception
     return user
